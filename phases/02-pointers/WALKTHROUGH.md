@@ -140,7 +140,7 @@ Inside Neovim, with `ex01.c` open:
 3. Execution stops at the breakpoint. Now open the REPL:
 
 ```
-:DapReplOpen
+:lua require('dap').repl.open()
 ```
 
 In the REPL, type each expression and press Enter:
@@ -164,7 +164,7 @@ p *p         -- prints: $4 = 100
 
 `x` changed even though you only wrote `*p = 100`. That is what indirection means.
 
-5. Press `<F5>` again to continue to the end, then `:DapReplClose` when done.
+5. Press `<F5>` again to continue to the end, then `:lua require('dap').repl.close()` when done.
 
 > **Nvim tip:** If you declare `int *p = NULL;` and try to dereference it, clangd shows an inline warning *before you even compile*: `Dereference of null pointer`. This is clangd's static analysis catching the bug at the source. NULL pointer dereferences are one of the most common causes of segfaults in C — having the editor flag it in real time saves you a debugging session.
 
@@ -235,7 +235,7 @@ Build and run with `<leader>cb` then `<leader>cr`.
 
 Set a breakpoint on the `for` loop body (`printf` line inside the first loop) with `<leader>db`, then `<F5>`.
 
-In `:DapReplOpen`:
+In the DAP REPL (`:lua require('dap').repl.open()`):
 
 ```
 p p              -- address of arr[0], e.g. 0x7ffd1000
@@ -329,7 +329,7 @@ Build with `<leader>cb` then run with `<leader>cr`.
 
 ### Step 3 — Debug: watch pointer subtraction
 
-Set a breakpoint on the `return` line inside `my_strlen`. Call the function with `"hello"`. In `:DapReplOpen`:
+Set a breakpoint on the `return` line inside `my_strlen`. Call the function with `"hello"`. In the DAP REPL (`:lua require('dap').repl.open()`):
 
 ```
 p s          -- 0x...abc0  (start of "hello")
@@ -418,7 +418,7 @@ Build with `<leader>cb` then run with `<leader>cr`.
 
 ### Step 3 — Debug: dual pointer walk
 
-Set a breakpoint on `*dst = *src;` inside `my_strcpy`. Call with `"hi"`. In `:DapReplOpen`:
+Set a breakpoint on `*dst = *src;` inside `my_strcpy`. Call with `"hi"`. In the DAP REPL (`:lua require('dap').repl.open()`):
 
 ```
 p src        -- 0x...  pointing at 'h'
@@ -756,7 +756,7 @@ After tokenizing:
 
 Set a breakpoint on `argv[argc++] = p;` inside `mysh_tokenize`. Then press `<F5>` to start a debug session with an input of `"ls -la"`.
 
-In `:DapReplOpen`:
+In the DAP REPL (`:lua require('dap').repl.open()`):
 
 ```
 p p          -- address inside buf, pointing at 'l'

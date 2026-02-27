@@ -316,7 +316,7 @@ to watch `a` remain unchanged after `move_by_value`.
 1. Set a breakpoint on the `move_by_value(a, 10, 20)` call line: `<leader>db`.
 2. Start the debug session: `<F5>`.
 3. Step into the function: `<F11>`.
-4. In the DAP REPL (the debug console), type:
+4. In the DAP REPL (`:lua require('dap').repl.open()`), type:
 
 ```
 p p

@@ -417,7 +417,7 @@ Understanding use-after-free is much easier when you can watch the pointer's val
 
 3. **Start the debugger**: press `<F5>`. GDB launches and the program stops at the first breakpoint.
 
-4. **Open the DAP REPL**: run `:DapReplOpen`. A split opens with a GDB-style REPL.
+4. **Open the DAP REPL**: run `:lua require('dap').repl.open()`. A split opens with a GDB-style REPL.
 
 5. **Inspect the pointer before free**: in the REPL type:
    ```
@@ -651,7 +651,7 @@ Before writing `main.c`, use the debugger to observe `realloc` moving the buffer
 
 1. Set a breakpoint inside `dynarray_push` at the `realloc` line with `<leader>db`.
 2. Press `<F5>` to start the debugger.
-3. Each time the breakpoint hits, open the REPL (`:DapReplOpen`) and type:
+3. Each time the breakpoint hits, open the REPL (`:lua require('dap').repl.open()`) and type:
    ```
    p da->data
    p da->cap
@@ -1068,7 +1068,7 @@ What you must verify in the parent:
 | Step over | `<F10>` |
 | Step into | `<F11>` |
 | Step out | `<F12>` |
-| Open DAP REPL | `:DapReplOpen` |
+| Open DAP REPL | `:lua require('dap').repl.open()` |
 | Open terminal split | `:split \| terminal` |
 | Move between splits | `Ctrl-w Ctrl-w` |
 | Jump to line N | `<N>G` |
