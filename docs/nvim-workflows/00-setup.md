@@ -58,4 +58,4 @@ If nothing appears, run `:LspInfo` to check clangd status.
 | LSP not starting | Check `:LspInfo` — clangd binary found? |
 | No completions | `compile_commands.json` missing or stale — regenerate |
 | exrc not loading | Add `vim.opt.exrc = true` to your global `init.lua` |
-| DAP not working | Install `nvim-dap`: `:PackerInstall` or equivalent |
+| DAP not working | Install `nvim-dap` via your plugin manager (lazy.nvim: see `02-debug.md`) |
