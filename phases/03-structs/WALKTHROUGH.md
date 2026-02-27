@@ -2,6 +2,8 @@
 
 > Audience: web developer with JavaScript/TypeScript background learning C.
 
+Open this phase with `<leader>p3` from anywhere in the project.
+
 ---
 
 ## 1. The TypeScript analogy — and where it breaks
@@ -30,6 +32,9 @@ In C, a `struct` is the same idea but with a completely different contract:
 
 This phase is about understanding that contract.
 
+> **Nvim tip:** Press `<leader>p3` to jump directly to this phase directory.
+> clangd activates automatically as soon as you open any `.c` file here.
+
 ---
 
 ## 2. Exercise 01 — Define `struct Point` and print its size
@@ -51,8 +56,8 @@ phases/03-structs/ex01.c
 #include <stdio.h>
 
 struct Point {
-    int x;
-    int y;
+    int x;   /* horizontal coordinate */
+    int y;   /* vertical coordinate   */
 };
 
 int main(void) {
@@ -73,6 +78,8 @@ int main(void) {
 gcc -Wall -o ex01 ex01.c && ./ex01
 ```
 
+Or from inside Neovim: `<leader>cb` to build, `<leader>cr` to run.
+
 ### Expected output
 
 ```
@@ -87,6 +94,23 @@ sizeof(struct Point) = 8 bytes
 - `%zu` is the correct format specifier for `size_t`, the type returned by
   `sizeof`.
 - Access fields with the **dot operator**: `p.x`, `p.y`.
+
+### Neovim interaction
+
+Open `ex01.c` and place the cursor on the field name `x` inside the struct
+definition. Press `K`.
+
+> **Nvim tip:** `K` (hover) asks clangd for the type and documentation of
+> whatever is under the cursor. On a struct field it shows the field type and
+> any comment you wrote next to it. Try it on `x` — you will see
+> `int x /* horizontal coordinate */` rendered in a floating window.
+> No need to scroll back to the definition.
+
+Now press `gd` while the cursor is on `p.x` in `main`. clangd jumps to the
+field declaration inside the struct.
+
+> **Nvim tip:** `gd` (go to definition) works on struct fields, functions,
+> macros, and typedefs. Use `<C-o>` to jump back to where you were.
 
 ---
 
@@ -183,6 +207,14 @@ struct Dense {
 
 Rule of thumb: **declare larger types first**, smaller types last.
 
+### Neovim interaction
+
+Place the cursor on `label` inside `struct Point3C` and press `K`.
+
+> **Nvim tip:** Hover shows `char label /* 1 byte — but watch what happens */`.
+> clangd surfaces the inline comment as documentation — a strong reason to
+> keep comments next to fields rather than in a block above the struct.
+
 ---
 
 ## 4. Exercise 03 — Pass by value vs pass by pointer
@@ -268,13 +300,53 @@ p->x          /* same as */    (*p).x
 ```
 
 Always use `->` with pointers, `.` with values. Mixing them up is the most
-common beginner mistake (see Section 8).
+common beginner mistake — but clangd catches it immediately (see Section 8).
 
 ### Performance note
 
 For a 2-field struct the copy is trivial. For a struct with 256 fields the copy
 is expensive. Prefer passing large structs by pointer (`const struct Foo *`)
 when you do not need to mutate them.
+
+### Neovim interaction: debug the copy in real time
+
+This is the exercise where the DAP debugger pays off immediately. The goal is
+to watch `a` remain unchanged after `move_by_value`.
+
+1. Set a breakpoint on the `move_by_value(a, 10, 20)` call line: `<leader>db`.
+2. Start the debug session: `<F5>`.
+3. Step into the function: `<F11>`.
+4. In the DAP REPL (the debug console), type:
+
+```
+p p
+p p.x
+p p.y
+```
+
+You will see the copied values — `x=1, y=2` — inside the function's frame.
+Modify `p.x` in your head, step over with `<F10>`, watch the local `p.x`
+change. Then step out with `<F12>` and type:
+
+```
+p a
+```
+
+`a` is still `{1, 2}`. The copy is gone. This makes the by-value semantics
+concrete in a way that reading about it does not.
+
+> **Nvim tip:** `<F11>` steps *into* a function call. `<F12>` steps *out*
+> back to the caller. `<F10>` steps *over* a line (does not descend into
+> function calls). Use `<leader>db` to toggle breakpoints on any line.
+
+Now run the same sequence for `move_by_pointer`. After stepping in, type:
+
+```
+p *p
+p p->x
+```
+
+Both syntaxes work in gdb. You can see the struct's memory through the pointer.
 
 ---
 
@@ -320,9 +392,9 @@ int main(void) {
 
     /* Explicit values */
     enum StatusCode {
-        OK      = 200,
+        OK        = 200,
         NOT_FOUND = 404,
-        ERROR   = 500
+        ERROR     = 500
     };
 
     printf("\nOK        = %d\n", OK);
@@ -354,6 +426,15 @@ ERROR     = 500
   an out-of-range integer to an enum variable — there is no runtime check.
 - TypeScript `enum` looks similar but is compiled away to a plain object;
   C enums are purely a compile-time naming convention.
+
+### Neovim interaction
+
+Place the cursor on `GREEN` inside `switch (c)` and press `gd`.
+
+> **Nvim tip:** `gd` on an enum constant jumps to its definition in the enum
+> declaration. Press `gr` to see every file that references `GREEN`. This is
+> already useful in a single file; it becomes essential when enums are declared
+> in a shared header and used across dozens of `.c` files.
 
 ---
 
@@ -447,6 +528,16 @@ typedef struct Node {
 Self-referential structs (linked lists, trees) need the tag because the typedef
 alias is not visible until the end of the declaration.
 
+### Neovim interaction
+
+Place the cursor on `Point` in `void print_point(const Point *p)` and press
+`K`.
+
+> **Nvim tip:** Hover on a `typedef`'d name shows the underlying type
+> expansion. You will see the full struct layout rendered in the floating
+> window without leaving the function signature. Press `gd` to jump to the
+> `typedef` declaration itself.
+
 ---
 
 ## 7. ASCII memory diagrams — padding summary
@@ -477,26 +568,33 @@ Always put larger fields first.
 
 ---
 
-## 8. Common mistakes
+## 8. Common mistakes — and how clangd catches them
 
 ### Mistake 1: Using `.` on a pointer
 
 ```c
 struct Point *p = &some_point;
-p.x = 5;   /* COMPILE ERROR: p is a pointer, not a struct */
+p.x = 5;   /* COMPILE ERROR */
 p->x = 5;  /* correct */
 ```
 
-The compiler will catch this, but the error message can be confusing the first
-time: *"request for member 'x' in something not a structure or union"*.
+clangd underlines `p.x` in red the instant you type it and shows:
+*"member reference type 'struct Point *' is a pointer; did you mean to use '->'?"*
+
+> **Nvim tip:** Move the cursor onto the red underline and press `<leader>ca`
+> (code action). clangd offers a one-keystroke fix: it rewrites `p.x` to
+> `p->x` for you. Accept it. This is faster than manually deleting and
+> retyping.
 
 ### Mistake 2: Using `->` on a value
 
 ```c
 struct Point p = {1, 2};
-p->x = 5;   /* COMPILE ERROR: p is not a pointer */
+p->x = 5;   /* COMPILE ERROR */
 p.x  = 5;   /* correct */
 ```
+
+Same pattern: clangd flags it inline and `<leader>ca` fixes it.
 
 Mnemonic: **arrow for address, dot for direct**.
 
@@ -514,6 +612,9 @@ void process(const BigBuffer *buf) {   /* copies 8 bytes (pointer) */
     /* ... */
 }
 ```
+
+clangd does not flag this because it is legal C — but it will show the full
+type including its size when you hover with `K`, which makes the cost visible.
 
 ### Mistake 4: Forgetting that assignment copies a struct
 
@@ -537,7 +638,7 @@ if (a == b) { ... }   /* COMPILE ERROR: structs cannot be compared with == */
 ```
 
 You must compare field by field, or use `memcmp` (which can give wrong results
-if there is padding with undefined bytes).
+if there is padding with undefined bytes). clangd highlights this immediately.
 
 ---
 
@@ -548,12 +649,21 @@ After completing the exercises, apply what you learned to `mysh`.
 ### Goal
 
 Replace the raw `argc`/`argv` locals in `main.c` with a `struct Command` that
-bundles all parsed input into one named value.
+bundles all parsed input into one named value. This is the first real struct in
+the shell — and the LSP tools shine during this refactor.
 
 ### Step 1 — Add `struct Command` to `mysh/include/mysh.h`
 
-Open `mysh/include/mysh.h`. Add the struct definition and update the
-`mysh_tokenize` signature:
+Open `mysh/include/mysh.h`. Use `:ClangdSwitchSourceHeader` to jump between
+the header and any `.c` file as you work.
+
+> **Nvim tip:** `:ClangdSwitchSourceHeader` (you can bind it to e.g.
+> `<leader>sh`) toggles between a `.h` and its paired `.c` file in one
+> keystroke. During this refactor you will be switching between `mysh.h`,
+> `tokenize.c`, `main.c`, and `builtins.c` constantly — this eliminates
+> manual `:e` navigation.
+
+Add the struct definition and update the function signatures:
 
 ```c
 #ifndef MYSH_H
@@ -585,7 +695,76 @@ int mysh_builtin(Command *cmd);
 #endif /* MYSH_H */
 ```
 
-### Step 2 — Update `mysh/src/tokenize.c`
+Save. clang-format runs automatically on save and aligns the fields.
+
+> **Nvim tip:** Auto-format on save is configured via clang-format. The moment
+> you save `mysh.h`, your field names align into columns without any manual
+> spacing. If you want to trigger it manually, `:w` always does it.
+
+### Step 2 — Rename the old `argv` parameter with `<leader>rn`
+
+The old `mysh_tokenize` signature is:
+
+```c
+int mysh_tokenize(char *buf, char **argv);
+```
+
+Open `tokenize.c`. Place the cursor on `argv` in the function signature and
+press `<leader>rn`. Type the new name: `cmd`. Press Enter.
+
+> **Nvim tip:** `<leader>rn` (rename symbol) sends a workspace rename request
+> to clangd. It finds every occurrence of `argv` in `tokenize.c` —
+> declaration, body, all usages — and renames them atomically. This is not
+> a search-and-replace: clangd understands scope, so a local `argv` in a
+> different function is left alone.
+
+This is a preview of what happens when you rename a struct field across
+**all files in the project**. See the `Command.name` rename example below.
+
+### Step 3 — Verify usages with `gr` before changing a field name
+
+Before updating `mysh_builtin`'s signature, place your cursor on `Command` in
+`mysh.h` and press `gr`.
+
+> **Nvim tip:** `gr` (show references) opens a quickfix list of every location
+> that mentions `Command` in the workspace. You will see entries for `mysh.h`,
+> `tokenize.c`, `main.c`, and `builtins.c`. This tells you exactly which files
+> you need to update — no manual grepping.
+
+### Step 4 — Rename a struct field with `<leader>rn` (the big demo)
+
+Imagine you decide to rename `Command.name` to `Command.cmd_name` after seeing
+it conflict with something. Place the cursor on the `name` field in the
+`typedef struct` body in `mysh.h` and press `<leader>rn`. Type `cmd_name`.
+Press Enter.
+
+**Before:**
+
+```c
+typedef struct {
+    char  *name;
+    char **args;
+    int    argc;
+} Command;
+```
+
+**After (clangd touches every file simultaneously):**
+
+- `mysh.h`: field becomes `cmd_name`
+- `tokenize.c`: every `cmd->name =` becomes `cmd->cmd_name =`
+- `main.c`: every `cmd.name` and `cmd->name` reference is updated
+- `builtins.c`: same
+
+The quickfix list shows every changed location. You can navigate through them
+with `:cn` / `:cp` to verify nothing unexpected changed.
+
+> **Nvim tip:** `<leader>rn` does a **semantic** rename, not a textual one.
+> It will not rename a local variable called `name` that has nothing to do
+> with the struct field. After the rename, `:wa` saves all open buffers.
+
+Rename it back to `name` before committing — this was a demonstration.
+
+### Step 5 — Update `mysh/src/tokenize.c`
 
 ```c
 #include <string.h>
@@ -609,7 +788,30 @@ int mysh_tokenize(char *buf, Command *cmd) {
 }
 ```
 
-### Step 3 — Update `mysh/src/main.c`
+### Step 6 — Debug the struct pointer with DAP
+
+Set a breakpoint inside `mysh_tokenize` on the line `cmd->argc = 0`:
+`<leader>db`. Build with `<leader>cb`, then start the debugger with `<F5>`.
+
+Type a command at the shell prompt (e.g. `ls -la`). The debugger will pause
+inside `mysh_tokenize`. In the DAP REPL:
+
+```
+p *cmd
+p cmd->name
+p cmd->args[0]
+p cmd->argc
+```
+
+> **Nvim tip:** Printing `*cmd` in the DAP REPL dereferences the pointer and
+> prints the full struct layout: all three fields, their values, their types.
+> This makes the struct's memory tangible. You can confirm that `name` points
+> into `buf`, that `args` is your stack-allocated array, and that `argc`
+> matches the number of tokens you typed.
+
+Step over with `<F10>` to watch `argc` increment as each token is parsed.
+
+### Step 7 — Update `mysh/src/main.c`
 
 ```c
 #include <stdio.h>
@@ -646,11 +848,20 @@ int main(void) {
 }
 ```
 
-### Step 4 — Update `mysh/src/builtins.c`
+### Step 8 — Update `mysh/src/builtins.c`
 
 Your `mysh_builtin` currently takes `(int argc, char **argv)`. Update its
 signature to `(Command *cmd)` and access `cmd->argc`, `cmd->args[0]`, etc.
 The internal logic stays the same — only the parameter names change.
+
+Place the cursor on the old `argc` parameter in `builtins.c` and use
+`<leader>rn` if you want to rename it to `cmd->argc` — though this one is
+a manual refactor since you are changing the parameter type, not just the name.
+
+> **Nvim tip:** After updating `builtins.c`, place your cursor on `Command`
+> and press `gr` again. The references list should now show `builtins.c`
+> using `Command *cmd` in its function signature. This confirms the refactor
+> is complete and consistent.
 
 ### Why this is an improvement
 
@@ -673,19 +884,31 @@ mysh_builtin(&cmd);
 
 This is the core benefit of structs: **cohesion**. Data that belongs together
 travels together. Functions that need that data accept one pointer instead of
-three separate arguments.
+multiple separate arguments.
+
+The LSP tools (`K`, `gd`, `gr`, `<leader>rn`) turn this refactor from a
+careful manual search into a fast, verified transformation.
 
 ---
 
 ## 10. Checklist
 
 - [ ] ex01 compiles and prints `sizeof(struct Point) = 8`
+- [ ] Used `K` on a struct field and read the hover documentation
+- [ ] Used `gd` to jump from a field usage back to its declaration
 - [ ] ex02 shows that adding `char label` makes the struct 12 bytes, not 9
 - [ ] ex03 shows that by-value does not change the original, by-pointer does
+- [ ] Used DAP to set a breakpoint in `move_by_pointer` and printed `*p` in the REPL
 - [ ] ex04 prints RED=0, GREEN=1, BLUE=2 and demonstrates explicit int values
+- [ ] Used `gr` on an enum constant to see all its usages
 - [ ] ex05 uses `typedef struct` and compiles without warnings
+- [ ] Used `K` on a typedef alias to see the underlying struct layout
+- [ ] Intentionally wrote `p.x` on a pointer and used `<leader>ca` to fix it
 - [ ] `mysh.h` declares `typedef struct { ... } Command`
 - [ ] `mysh_tokenize` signature updated to `(char *buf, Command *cmd)`
 - [ ] `mysh_builtin` signature updated to `(Command *cmd)`
 - [ ] `main.c` uses `Command cmd` and passes `&cmd` to tokenize/builtin
-- [ ] `mysh` compiles without warnings after refactor (`gcc -Wall`)
+- [ ] Used `<leader>rn` on a struct field and verified the rename across files
+- [ ] Used `gr` on `Command` to confirm all files are updated
+- [ ] `mysh` compiles without warnings after refactor (`<leader>cb`)
+- [ ] Used DAP inside `mysh_tokenize` to print `*cmd` and inspect all fields

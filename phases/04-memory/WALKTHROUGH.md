@@ -2,6 +2,7 @@
 
 > Audience: web developer (JavaScript/TypeScript background) learning C.
 > Time estimate: 3–5 hours for exercises + mysh milestone.
+> Open this phase in Neovim with `<leader>p4` from anywhere in the project.
 
 ---
 
@@ -81,6 +82,8 @@ void example(void) {
 
 When `example()` returns, `x` and `arr` vanish. `heap_arr` (the pointer variable) also vanishes from the stack, but the memory it was pointing to on the heap is still allocated. You just lost the only handle to it. That is a memory leak.
 
+> **Nvim tip:** With the cursor on `malloc` anywhere in this phase, press `K` to read clangd's inline documentation — it shows the signature, parameter types, and return value description without leaving the editor.
+
 ---
 
 ## 3. Exercise 01 — `malloc` + `free`
@@ -89,10 +92,19 @@ When `example()` returns, `x` and `arr` vanish. `heap_arr` (the pointer variable
 
 ### Step 1 — Create the file
 
+From your terminal (or a Neovim `:terminal` split):
+
 ```bash
 mkdir -p /home/hidekina/projetos/c-lab/phases/04-memory/ex01
-touch /home/hidekina/projetos/c-lab/phases/04-memory/ex01/heap_array.c
 ```
+
+Then open the file directly in Neovim:
+
+```bash
+nvim /home/hidekina/projetos/c-lab/phases/04-memory/ex01/heap_array.c
+```
+
+> **Nvim tip:** clangd activates automatically when you open a `.c` file. You will see LSP diagnostics appear in the gutter within a second or two. If you see a warning you did not expect, hover the squiggly with `K` to read the explanation inline.
 
 ### Step 2 — Write the code
 
@@ -137,15 +149,13 @@ int main(void) {
 }
 ```
 
-### Step 3 — Compile and run
+The file is auto-formatted on save — indentation and braces are normalized without any manual effort.
 
-```bash
-cd /home/hidekina/projetos/c-lab/phases/04-memory/ex01
-gcc -Wall -Wextra -o heap_array heap_array.c
-./heap_array
-```
+### Step 3 — Build and run from Neovim
 
-Expected output:
+Press `<leader>cb` to build. The compiler output appears in a terminal split at the bottom. If there are errors, clangd has already underlined them in the editor — fix them and build again.
+
+Press `<leader>cr` to run the binary. Output appears in the same terminal split:
 
 ```
 arr[0] = 0
@@ -155,7 +165,13 @@ arr[3] = 9
 arr[4] = 16
 ```
 
-### Step 4 — Run under valgrind
+> **Nvim tip:** You never need to leave the editor. Code is in the top split, terminal output is in the bottom split. Use `Ctrl-w Ctrl-w` to move focus between splits.
+
+### Step 4 — Run valgrind from Neovim
+
+Press `<leader>cv`. This runs `valgrind --leak-check=full ./bin/mysh` — but for exercises, you can adapt the command or run valgrind in the terminal split directly. The output streams into the split below your code.
+
+For this exercise, in the terminal split:
 
 ```bash
 valgrind --leak-check=full --track-origins=yes ./heap_array
@@ -165,8 +181,6 @@ Expected valgrind output (clean):
 
 ```
 ==12345== Memcheck, a memory error detector
-==12345== Copyright (C) 2002-2022, and GNU GPL'd, by Julian Seward et al.
-==12345== Using Valgrind-3.19.0 and LibVEX; rerun with -h for copyright info
 ==12345== Command: ./heap_array
 ==12345==
 arr[0] = 0
@@ -188,6 +202,8 @@ arr[4] = 16
 
 "In use at exit: 0 bytes" is the green light. Every byte allocated was freed.
 
+> **Nvim tip:** The valgrind output stays in the split — scroll it with the mouse or with `Ctrl-w` focus + normal-mode `j`/`k`. You can cross-reference line numbers in the report against the code above without switching windows.
+
 ### Key concepts from ex01
 
 - `sizeof(int)` returns the size of one `int` on your platform (usually 4). Always use `sizeof` — never hardcode 4.
@@ -202,6 +218,8 @@ arr[4] = 16
 **Goal:** write a program that leaks memory, run it through valgrind, and learn to read the leak report.
 
 ### Step 1 — Write the leaky code
+
+Open `ex02/leak.c` in Neovim. Note that clangd does not flag the missing `free` as an error — static analysis has limits. This is exactly why you need valgrind.
 
 ```c
 /* ex02/leak.c
@@ -229,7 +247,9 @@ int main(void) {
 }
 ```
 
-### Step 2 — Compile and run normally
+### Step 2 — Build with debug symbols
+
+Press `<leader>cb` or in the terminal split:
 
 ```bash
 cd /home/hidekina/projetos/c-lab/phases/04-memory/ex02
@@ -243,11 +263,15 @@ The `-g` flag includes debug symbols (file names, line numbers) so valgrind can 
 
 ### Step 3 — Run through valgrind
 
+In the terminal split (or with `<leader>cv` adapted for this binary):
+
 ```bash
 valgrind --leak-check=full --track-origins=yes ./leak
 ```
 
 ### Step 4 — Read the report (annotated)
+
+The valgrind output streams into your split. Keep your source code visible in the top window and read the report below — no context switching:
 
 ```
 ==13370== Memcheck, a memory error detector
@@ -286,6 +310,8 @@ Hello, world!
 | (D) `main (leak.c:16)` | `make_greeting` was called from line 16 of `main` — full call chain |
 | (E) LEAK SUMMARY | "definitely lost" = confirmed leak; "possibly lost" = pointer arithmetic may still reach it |
 
+> **Nvim tip:** valgrind reports line numbers. With the report in the bottom split, note "leak.c:16", then switch focus to the source split (`Ctrl-w Ctrl-w`) and jump to line 16 with `16G`. You locate the exact bug site without ever leaving the editor.
+
 ### The four loss categories
 
 - **definitely lost** — no pointer can reach this block. Classic leak. Fix it.
@@ -295,13 +321,19 @@ Hello, world!
 
 ### Fix
 
-Add `free(msg);` before `return 0;` in `main`. Re-run valgrind — the leak disappears.
+Add `free(msg);` before `return 0;` in `main`. Press `<leader>cb` to rebuild, then re-run valgrind — the leak disappears.
 
 ---
 
 ## 5. How to Read a Valgrind Report (Reference)
 
-A complete annotated report for quick reference:
+The `:split | terminal` pattern is your friend for this entire phase: code in the top split, valgrind scrolling in the bottom split. To open it manually from Neovim:
+
+```
+:split | terminal
+```
+
+This opens a horizontal split with a shell. Run valgrind there. The report stays visible while you edit above.
 
 ```
 ==PID== HEAP SUMMARY:
@@ -340,7 +372,7 @@ A complete annotated report for quick reference:
 
 ## 6. Exercise 03 — Use-After-Free
 
-**Goal:** access memory after calling `free`, trigger it, detect it with AddressSanitizer.
+**Goal:** access memory after calling `free`, trigger it, detect it with AddressSanitizer, and watch it happen live in the DAP debugger.
 
 ### Why it is dangerous
 
@@ -373,7 +405,49 @@ int main(void) {
 }
 ```
 
-### Step 2 — Compile with AddressSanitizer
+> **Nvim tip:** After you type the `printf` line that reads `*p` after `free(p)`, watch the gutter. clangd's static analyzer may draw a squiggly under `*p` with a "use of memory after it is freed" diagnostic. Hover it with `K` to read the explanation. This is clangd catching the bug *before* you even compile — but do not rely on this alone; not all use-after-free patterns are statically detectable.
+
+### Step 2 — Explore the bug with DAP before compiling
+
+Understanding use-after-free is much easier when you can watch the pointer's value change in real time. Open `uaf.c` in Neovim and do the following:
+
+1. **Set a breakpoint after `malloc`**: move the cursor to the line `*p = 42;` and press `<leader>db`. A breakpoint marker appears in the gutter.
+
+2. **Set a second breakpoint after `free`**: move the cursor to the `printf("after free..."` line and press `<leader>db`.
+
+3. **Start the debugger**: press `<F5>`. GDB launches and the program stops at the first breakpoint.
+
+4. **Open the DAP REPL**: run `:DapReplOpen`. A split opens with a GDB-style REPL.
+
+5. **Inspect the pointer before free**: in the REPL type:
+   ```
+   p p
+   ```
+   You will see something like `$1 = (int *) 0x5555557592a0` — a real heap address.
+
+   Then type:
+   ```
+   p *p
+   ```
+   Output: `$2 = 42` — the value you stored.
+
+   For a raw memory view:
+   ```
+   x/8xb p
+   ```
+   This dumps 8 bytes at the address in hex — you can see the integer `42` encoded as `0x2a` in the first 4 bytes.
+
+6. **Continue to the second breakpoint**: press `<F5>` again. The program executes `free(p)`.
+
+7. **Inspect the pointer after free**: in the REPL:
+   ```
+   p *p
+   ```
+   This access is now undefined behavior. In GDB under valgrind or with ASan instrumentation the REPL will either show garbage, a crash, or an explicit error. This is the use-after-free made tangible — you are looking at the exact moment the pointer becomes dangerous.
+
+> **Nvim tip:** Step over individual lines with `<F10>`. Step into a function call with `<F11>`. Step out of the current function back to the caller with `<F12>`. For this bug, `<F10>` through `malloc`, `*p = 42`, and `free(p)` one line at a time makes the sequence of events unmistakable.
+
+### Step 3 — Compile with AddressSanitizer
 
 ```bash
 cd /home/hidekina/projetos/c-lab/phases/04-memory/ex03
@@ -381,7 +455,9 @@ gcc -Wall -Wextra -g -fsanitize=address -o uaf uaf.c
 ./uaf
 ```
 
-### Step 3 — Read the ASan report (annotated)
+### Step 4 — Read the ASan report (annotated)
+
+The ASan report streams into your terminal split. Keep the source above:
 
 ```
 before free: *p = 42
@@ -419,6 +495,8 @@ Shadow bytes around the buggy address:                                          
 | (G) Shadow bytes | ASan memory map showing poisoned (red) vs valid (green) regions |
 
 ASan tells you three things in order: where you used the bad pointer, where it was freed, and where it was originally allocated. That is everything you need to fix the bug.
+
+> **Nvim tip:** ASan reports `uaf.c:16` as the violation site. In the source split, jump there with `16G`. `gr` lists all references to `p` across the file — you can see the alloc, the free, and the bad access all in one list.
 
 ### Fix
 
@@ -460,7 +538,7 @@ ERROR: AddressSanitizer: <error-type> on address <addr>
     #1 0xADDR in caller_name  file.c:LINE
 ```
 
-Frame `#0` is where the violation happened. Read downward for the call chain. The file and line are exact — go straight there.
+Frame `#0` is where the violation happened. Read downward for the call chain. The file and line are exact — go straight there with `<LINE>G` in Neovim.
 
 **Enabling ASan:**
 
@@ -476,7 +554,7 @@ ASan has ~2x memory overhead and ~2x slowdown — use it during development and 
 
 ## 8. Exercise 04 — Dynamic Array
 
-**Goal:** implement a growable array similar to JavaScript's `Array` or C++'s `std::vector`, using `malloc`, `realloc`, and `free`.
+**Goal:** implement a growable array similar to JavaScript's `Array` or C++'s `std::vector`, using `malloc`, `realloc`, and `free`. This exercise is where `K` and the DAP REPL will earn their keep.
 
 ### Step 1 — Design the data structure
 
@@ -507,6 +585,8 @@ void dynarray_free_all(DynArray *da);
 
 #endif /* DYNARRAY_H */
 ```
+
+> **Nvim tip:** `gd` on `dynarray_push` in `main.c` jumps to the declaration in `dynarray.h`. `gr` on it lists every call site in the project. These are your primary navigation tools for multi-file C code.
 
 ### Step 2 — Implement
 
@@ -559,7 +639,34 @@ void dynarray_free_all(DynArray *da) {
 }
 ```
 
-### Step 3 — Write a test driver
+> **Nvim tip:** While typing the `realloc` call, position the cursor on `realloc` and press `K`. clangd displays the full signature:
+> ```
+> void *realloc(void *ptr, size_t size)
+> ```
+> and the man-page description: "If the reallocation fails, the original block is left untouched." This is the exact reason for the temp-pointer pattern — the documentation is one keystroke away.
+
+### Step 3 — Watch realloc live with DAP
+
+Before writing `main.c`, use the debugger to observe `realloc` moving the buffer:
+
+1. Set a breakpoint inside `dynarray_push` at the `realloc` line with `<leader>db`.
+2. Press `<F5>` to start the debugger.
+3. Each time the breakpoint hits, open the REPL (`:DapReplOpen`) and type:
+   ```
+   p da->data
+   p da->cap
+   p da->len
+   ```
+4. Press `<F10>` to step over the `realloc` call.
+5. In the REPL again:
+   ```
+   p da->data
+   ```
+   The address has changed — `realloc` moved the buffer to a larger region. The old address is now invalid. The temp-pointer pattern (`new_data`) protects you if this call had failed.
+
+> **Nvim tip:** `<F11>` steps *into* `realloc`. You will land in glibc internals. Press `<F12>` to step back out immediately to your code.
+
+### Step 4 — Write a test driver
 
 ```c
 /* ex04/main.c */
@@ -594,15 +701,9 @@ int main(void) {
 }
 ```
 
-### Step 4 — Compile and verify
+### Step 5 — Build and run from Neovim
 
-```bash
-cd /home/hidekina/projetos/c-lab/phases/04-memory/ex04
-gcc -Wall -Wextra -g -o dynarray main.c dynarray.c
-./dynarray
-```
-
-Expected output:
+Press `<leader>cb` to build. Then `<leader>cr` to run. Expected output in the terminal split:
 
 ```
 len=10, cap=16
@@ -620,22 +721,24 @@ da[9] = 27
 
 Cap is 16 because: initial=2 → push fills it → realloc to 4 → realloc to 8 → realloc to 16.
 
-### Step 5 — Run under valgrind
+### Step 6 — Run under valgrind from Neovim
+
+In the terminal split (keep source visible above):
 
 ```bash
 valgrind --leak-check=full --track-origins=yes ./dynarray
 ```
 
-All heap blocks should be freed. No errors.
+All heap blocks should be freed. No errors. The report confirms every `malloc`/`realloc` was matched by a `free`.
 
-### Step 6 — Run with ASan
+### Step 7 — Run with ASan
 
 ```bash
 gcc -Wall -Wextra -g -fsanitize=address -o dynarray_asan main.c dynarray.c
 ./dynarray_asan
 ```
 
-No errors should appear.
+No errors should appear. If they do, the ASan report will give you the exact file and line — navigate there with `<LINE>G`.
 
 ### Key concept: the `realloc` safety pattern
 
@@ -669,6 +772,8 @@ free(p);  /* undefined behavior — allocator internals are now corrupt */
 **Detection:** ASan reports `double-free`. Valgrind reports `Invalid free`.
 
 **Prevention:** set `p = NULL` after every `free`. `free(NULL)` is a no-op — safe.
+
+> **Nvim tip:** `<leader>rn` renames a variable project-wide. If you rename a pointer to something more descriptive, clangd updates every reference — including all the places you need to add `= NULL` after `free`.
 
 ### Forgetting to free in error paths
 
@@ -758,11 +863,13 @@ char *get_name(void) {
 }
 ```
 
+> **Nvim tip:** `<leader>ca` on a line with a clangd warning opens the code actions menu. For some mistakes (unused variables, missing `const`, simple fixes) clangd offers one-click repairs directly in the editor.
+
 ---
 
 ## 10. mysh Milestone — Phase 04
 
-**Goal:** add external command execution to `mysh` using `fork()` + `execvp()`. Run the result under valgrind to verify no leaks.
+**Goal:** add external command execution to `mysh` using `fork()` + `execvp()`. Run the result under valgrind from inside Neovim without ever leaving the editor.
 
 ### Background
 
@@ -775,7 +882,13 @@ fprintf(stderr, "mysh: %s: command not found\n", argv[0]);
 
 You will replace that stub by adding `src/exec.c` and declaring `mysh_exec` in `mysh.h`.
 
-### Step 1 — Add the declaration to `mysh.h`
+### Step 1 — Navigate with LSP
+
+Open `mysh/src/main.c` in Neovim. With the cursor on `mysh_builtin`, press `gd` to jump to its declaration in `mysh.h`. You can see the existing function signatures and the pattern you need to follow. Press `Ctrl-o` to jump back to `main.c`.
+
+> **Nvim tip:** `gr` on `mysh_builtin` lists every call site across the project. Since you are about to add a parallel function `mysh_exec`, this gives you a sense of how `mysh_builtin` is wired in — then you mirror that pattern.
+
+### Step 2 — Add the declaration to `mysh.h`
 
 In `/home/hidekina/projetos/c-lab/mysh/include/mysh.h`, add after the existing declarations:
 
@@ -786,7 +899,15 @@ In `/home/hidekina/projetos/c-lab/mysh/include/mysh.h`, add after the existing d
 int mysh_exec(char **argv);
 ```
 
-### Step 2 — Create `src/exec.c`
+### Step 3 — Create `src/exec.c`
+
+Open a new buffer in Neovim:
+
+```
+:e /home/hidekina/projetos/c-lab/mysh/src/exec.c
+```
+
+clangd activates immediately for the new file. As you type `#include "mysh.h"`, the LSP resolves the header and gives you completion for `mysh_exec`.
 
 ```c
 /* mysh/src/exec.c
@@ -840,7 +961,9 @@ int mysh_exec(char **argv) {
 }
 ```
 
-### Step 3 — Wire it into `main.c`
+> **Nvim tip:** With the cursor on `WIFEXITED` or `WEXITSTATUS`, press `K`. clangd shows the macro description: these extract the exit status from the raw `status` integer returned by `waitpid`. You understand the code without opening a browser or a man page.
+
+### Step 4 — Wire it into `main.c`
 
 Replace the stub in `mysh/src/main.c`:
 
@@ -861,47 +984,40 @@ With:
         mysh_exec(argv);
 ```
 
-### Step 4 — Rebuild
+### Step 5 — Build from Neovim
 
-```bash
-cd /home/hidekina/projetos/c-lab/mysh
-make
+Press `<leader>cb`. The build output appears in the terminal split. Fix any errors (clangd will have already underlined them in the source).
+
+> **Nvim tip:** If the build fails with "undefined reference to mysh_exec", verify that `exec.c` is included in the Makefile or build command. `gr` on `mysh_exec` in `main.c` will show zero results if the declaration is missing from `mysh.h` — that is your diagnostic.
+
+### Step 6 — Quick smoke test
+
+Press `<leader>cr` to launch `./bin/mysh` in the terminal split:
+
 ```
-
-If you do not have a Makefile yet:
-
-```bash
-gcc -Wall -Wextra -g \
-    -I include \
-    -o bin/mysh \
-    src/main.c src/readline.c src/tokenize.c src/builtin.c src/exec.c
-```
-
-### Step 5 — Quick smoke test
-
-```bash
-./bin/mysh
 mysh> ls -l
 mysh> echo hello world
 mysh> exit
 ```
 
-External commands should execute normally.
+External commands execute normally — all without leaving Neovim.
 
-### Step 6 — Run under valgrind
+### Step 7 — Verify no leaks with `<leader>cv`
 
-```bash
-valgrind --leak-check=full --track-origins=yes ./bin/mysh
+This is the payoff of the entire phase. Press `<leader>cv`. This runs:
+
+```
+valgrind --leak-check=full ./bin/mysh
 ```
 
-At the prompt, type a few commands then `exit`:
+The valgrind output streams into the terminal split below your source code. At the valgrind prompt type:
 
 ```
 mysh> echo test
 mysh> exit
 ```
 
-Expected valgrind summary:
+Then read the report in the split below. Expected result:
 
 ```
 ==XXXX== HEAP SUMMARY:
@@ -912,6 +1028,10 @@ Expected valgrind summary:
 ==XXXX==
 ==XXXX== ERROR SUMMARY: 0 errors from 0 contexts
 ```
+
+You ran valgrind, read the report, and confirmed zero leaks — all from within Neovim, with the source code visible in the split above.
+
+> **Nvim tip:** If you see a non-zero "in use at exit", the leak report names the file and line. Switch focus to the source split with `Ctrl-w Ctrl-w`, jump to that line with `<LINE>G`, and fix. Press `<leader>cb` and `<leader>cv` again. Iterate until clean.
 
 ### How `fork` + `exec` relates to memory
 
@@ -931,20 +1051,57 @@ What you must verify in the parent:
 
 ---
 
-## 11. Checklist
+## 11. Neovim Workflow Summary for Phase 04
+
+| Task | Keymap / Command |
+|---|---|
+| Jump to definition of a function | `gd` |
+| List all references to a symbol | `gr` |
+| Read docs / man-page for symbol under cursor | `K` |
+| Rename symbol everywhere | `<leader>rn` |
+| Code actions (quick fixes) | `<leader>ca` |
+| Build | `<leader>cb` |
+| Run | `<leader>cr` |
+| Run valgrind on mysh | `<leader>cv` |
+| Toggle breakpoint | `<leader>db` |
+| Start / continue debugger | `<F5>` |
+| Step over | `<F10>` |
+| Step into | `<F11>` |
+| Step out | `<F12>` |
+| Open DAP REPL | `:DapReplOpen` |
+| Open terminal split | `:split \| terminal` |
+| Move between splits | `Ctrl-w Ctrl-w` |
+| Jump to line N | `<N>G` |
+
+**Key DAP REPL expressions for heap debugging:**
+
+```
+p ptr          -- print pointer address
+p *ptr         -- dereference: print value at address
+x/8xb ptr      -- dump 8 bytes at address in hex (raw memory view)
+p da->len      -- struct field
+p da->data[3]  -- array element through pointer
+```
+
+---
+
+## 12. Checklist
 
 Go through this list before moving to Phase 05:
 
-- [ ] ex01: heap array compiles, runs, valgrind shows 0 leaks
-- [ ] ex02: leaky program identified and fixed, valgrind report read and understood
-- [ ] ex03: use-after-free triggered and caught by ASan; report annotated
+- [ ] ex01: heap array compiles, runs, valgrind shows 0 leaks — verified from Neovim terminal split
+- [ ] ex02: leaky program identified and fixed, valgrind report read without leaving the editor
+- [ ] ex03: use-after-free triggered live in DAP — pointer inspected before and after `free` in the REPL
+- [ ] ex03: ASan report annotated; clangd inline warning observed
 - [ ] ex04: dynamic array with `init`, `push`, `get`, `free_all`; valgrind clean; ASan clean
+- [ ] ex04: `K` on `realloc` used to read the signature before implementing the temp-pointer pattern
+- [ ] ex04: DAP used to watch `da->data` address change across a `realloc` call
 - [ ] ex04: the `realloc` safety pattern is used (temp pointer, not direct assign)
 - [ ] ex04: all error paths call `free` before returning
 - [ ] mysh: `src/exec.c` added with `mysh_exec(char **argv)`
 - [ ] mysh: `mysh.h` declares `mysh_exec`
 - [ ] mysh: `main.c` calls `mysh_exec` instead of printing "command not found"
-- [ ] mysh: valgrind shows 0 bytes in use at exit after `exit` command
+- [ ] mysh: `<leader>cv` run — valgrind shows 0 bytes in use at exit after `exit` command
 - [ ] Habit: every `malloc` is paired with `free`
 - [ ] Habit: every `free` is followed by `ptr = NULL`
 - [ ] Habit: `realloc` uses a temp pointer
