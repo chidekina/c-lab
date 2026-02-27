@@ -1,0 +1,16 @@
+# Binaries
+*.o
+*.out
+*.a
+a.out
+
+# Build dirs
+build/
+bin/
+
+# clangd generated
+compile_commands.json
+.cache/
+
+# OS
+.DS_Store

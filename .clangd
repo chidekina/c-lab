@@ -1,0 +1,5 @@
+CompileFlags:
+  Add: [-Wall, -Wextra, -std=c17]
+  CompilationDatabase: .
+Diagnostics:
+  UnusedIncludes: Strict
