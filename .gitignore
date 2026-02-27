@@ -2,6 +2,7 @@
 *.o
 *.out
 *.a
+*.d
 a.out
 
 # Build dirs

@@ -3,3 +3,10 @@ CompileFlags:
   CompilationDatabase: .
 Diagnostics:
   UnusedIncludes: Strict
+
+# Phase 05+: when editing .cpp files, override to C++17
+# Uncomment when reaching phase 05:
+# If:
+#   PathMatch: .*\.(cpp|cc|cxx)
+#   CompileFlags:
+#     Add: [-std=c++17]
